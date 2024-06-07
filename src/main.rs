@@ -78,7 +78,7 @@ fn header(page_title: &str) -> Markup {
 /// Navbar of the Page
 fn navbar() -> Markup {
     html! {
-        div class="navbar bg-base-300" {
+        div class="navbar bg-base-300 shadow-xl" {
             div class="flex justify-between w-full" {
                 a class="btn btn-ghost text-xl" href="/" {
                     "db"
@@ -97,10 +97,16 @@ fn navbar() -> Markup {
 /// The Page, useful when wanting to use multiple Pages
 fn page(title: &str, html: Markup) -> Markup {
     html! {
-        (header(title))
-        (navbar())
-        div class="container space-y-8 flex flex-col items-center !max-w-6xl mx-auto p-4" {
-            (html)
+        div class="grid grid-rows-[64px_auto] h-full" {
+            div {
+                (header(title))
+                (navbar())
+            }
+            div class="h-full overflow-scroll" {
+                div class="container space-y-8 flex flex-col items-center !max-w-6xl mx-auto p-4" {
+                    (html)
+                }
+            }
         }
     }
 }
