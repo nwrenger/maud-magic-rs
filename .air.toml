@@ -1,0 +1,32 @@
+root = "."
+tmp_dir = "target/air"
+
+[build]
+bin = "./target/debug/maud-magic-rs 127.0.0.1:8080"
+cmd = "cd ./assets/static/content && bunx tailwindcss -i ./../../input.css -o ./dist/output.css && cd ./../../../ && cargo build"
+delay = 0
+exclude_dir = ["assets", "vendor", "target"]
+exclude_file = []
+exclude_regex = []
+exclude_unchanged = false
+follow_symlink = false
+full_bin = ""
+include_dir = ["src"]
+include_ext = ["rs", "html", "css"]
+kill_delay = "0s"
+log = "build-errors.log"
+send_interrupt = false
+stop_on_error = true
+
+[color]
+app = ""
+build = "yellow"
+main = "magenta"
+runner = "green"
+watcher = "cyan"
+
+[log]
+time = false
+
+[misc]
+clean_on_exit = true
