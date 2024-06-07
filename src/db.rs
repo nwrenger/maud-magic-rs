@@ -21,21 +21,21 @@ pub fn init() -> Database {
         author: "Jim Blandy and Jason Orendorff".to_string(),
         price: 44.99,
     };
-    
+
     let book3 = Book {
         id: 3,
         title: "Rust by Example".to_string(),
         author: "Steve Klabnik".to_string(),
         price: 29.99,
     };
-    
+
     let book4 = Book {
         id: 4,
         title: "Rust for Rustaceans".to_string(),
         author: "Jon Gjengset".to_string(),
         price: 49.99,
     };
-    
+
     let book5 = Book {
         id: 5,
         title: "Clean Code".to_string(),
