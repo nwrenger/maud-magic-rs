@@ -145,7 +145,7 @@ async fn root() -> Markup {
                         }
                     }
                     div id="search-results" {}
-                    div id="book-display" {}
+                    div id="book-display" class="overflow-x-scroll" {}
             }
         },
     )
@@ -161,25 +161,23 @@ struct SearchForm {
 async fn fetch_books(State(db): State<Database>, Form(form): Form<SearchForm>) -> Markup {
     let books = db.search_book(&form.search);
     html! {
-        div id="search-results" class="overflow-x-scroll" {
         table class="table table-pin-rows table-pin-cols" {
-                thead {
-                    tr {
-                        th { "ID" }
-                        th {" Title" }
+            thead {
+                tr {
+                    th { "ID" }
+                    th {" Title" }
+                }
+            }
+            tbody {
+                @for book in &books {
+                    tr class="hover" hx-get={ "/book/" (book.id)} hx-target="#book-display" hx-indicator=".htmx-indicator" {
+                        td { (book.id) }
+                        td { (book.title) }
                     }
                 }
-                tbody {
-                    @for book in &books {
-                        tr class="hover" hx-get={ "/book/" (book.id)} hx-target="#book-display" hx-indicator=".htmx-indicator" {
-                            td { (book.id) }
-                            td { (book.title) }
-                        }
-                    }
-                    @if books.is_empty() {
-                        tr class="opacity-50" {
-                            th { "No results!" }
-                        }
+                @if books.is_empty() {
+                    tr class="opacity-50" {
+                        th { "No results!" }
                     }
                 }
             }
@@ -196,23 +194,28 @@ async fn show_book(State(db): State<Database>, Path(path): Path<String>) -> Mark
 
 /// Show an Empty Book with an Add Button
 async fn get_add_book() -> Markup {
-    html! {
-        form hx-post="/book" hx-target="#book-display" hx-indicator=".htmx-indicator" {
-            (book_display(&Book::default()))
-            button class="btn btn-outline btn-primary mt-2" type="submit"{ "Add" }
-        }
-    }
+    book_with_add_button()
 }
 
 /// Action when a book is added, opens it directly
 async fn add_book(State(db): State<Database>, Form(book): Form<Book>) -> impl IntoResponse {
-    if let Some(new_book) = db.insert_book(book) {
+    if let Some(new_book) = db.add_book(book) {
         let mut headers = HeaderMap::default();
         headers.insert("HX-Trigger", HeaderValue::from_static("update"));
 
         (StatusCode::OK, headers, book_with_edit_buttons(&new_book))
     } else {
-        (StatusCode::BAD_REQUEST, HeaderMap::default(), html!())
+        (
+            StatusCode::OK,
+            HeaderMap::default(),
+            html! {
+                (book_with_add_button())
+                div role="alert" class="alert alert-error" {
+                    svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24" { path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z";}
+                    span { "Error! Adding Book failed: 'Bad Request'." }
+                }
+            },
+        )
     }
 }
 
@@ -230,19 +233,63 @@ async fn edit_book(
 
         (StatusCode::OK, headers, book_with_edit_buttons(&new_book))
     } else {
-        (StatusCode::BAD_REQUEST, HeaderMap::default(), html!())
+        if let Some(old_book) = db.get_book(&id) {
+            (
+                StatusCode::OK,
+                HeaderMap::default(),
+                html! {
+                    (book_with_edit_buttons(&old_book))
+                    div role="alert" class="alert alert-error" {
+                        svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24" { path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z";}
+                        span { "Error! Editing Book failed: 'Bad Request'." }
+                    }
+                },
+            )
+        } else {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                HeaderMap::default(),
+                html!(),
+            )
+        }
     }
 }
 
 /// Action when a book is deleted, closes it directly
-async fn delete_book(State(db): State<Database>, Path(path): Path<String>) -> impl IntoResponse {
+async fn delete_book(
+    State(db): State<Database>,
+    Path(path): Path<String>,
+    Form(book): Form<Book>,
+) -> impl IntoResponse {
     let id = path.parse::<usize>().unwrap_or_default();
-    db.delete_book(&id);
+    if db.delete_book(&id).is_some() {
+        let mut headers = HeaderMap::default();
+        headers.insert("HX-Trigger", HeaderValue::from_static("update"));
 
-    let mut headers = HeaderMap::default();
-    headers.insert("HX-Trigger", HeaderValue::from_static("update"));
+        (StatusCode::OK, headers, html!())
+    } else {
+        (
+            StatusCode::OK,
+            HeaderMap::default(),
+            html! {
+                (book_with_edit_buttons(&book))
+                    div role="alert" class="alert alert-error" {
+                        svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24" { path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z";}
+                        span { "Error! Deleting Book failed: 'Bad Request'." }
+                    }
+            },
+        )
+    }
+}
 
-    (StatusCode::OK, headers, html!())
+/// Book Display with `Add` Button
+fn book_with_add_button() -> Markup {
+    html! {
+        form hx-post="/book" hx-target="#book-display" hx-indicator=".htmx-indicator" {
+            (book_display(&Book::default()))
+            button class="btn btn-outline btn-primary mt-2" type="submit"{ "Add" }
+        }
+    }
 }
 
 /// Book Display with `Edit` && `Delete` Button
