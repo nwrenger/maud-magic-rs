@@ -1,0 +1,52 @@
+{
+  "book": {
+    "1": {
+      "id": 1,
+      "title": "The Rust Programming Language",
+      "author": "Steve Klabnik and Carol Nichols",
+      "price": 39.99
+    },
+    "2": {
+      "id": 2,
+      "title": "Programming Rust",
+      "author": "Jim Blandy and Jason Orendorff",
+      "price": 44.99
+    },
+    "3": {
+      "id": 3,
+      "title": "Rust by Example",
+      "author": "Steve Klabnik",
+      "price": 29.99
+    },
+    "4": {
+      "id": 4,
+      "title": "Rust for Rustaceans",
+      "author": "Jon Gjengset",
+      "price": 49.99
+    },
+    "5": {
+      "id": 5,
+      "title": "Clean Code",
+      "author": "Robert C. Martin",
+      "price": 32.99
+    },
+    "6": {
+      "id": 6,
+      "title": "The Pragmatic Programmer",
+      "author": "Andrew Hunt and David Thomas",
+      "price": 37.99
+    },
+    "7": {
+      "id": 7,
+      "title": "You Don't Know JS",
+      "author": "Kyle Simpson",
+      "price": 24.99
+    },
+    "8": {
+      "id": 8,
+      "title": "Design Patterns: Elements of Reusable Object-Oriented Software",
+      "author": "Erich Gamma, Richard Helm, Ralph Johnson, and John Vlissides",
+      "price": 54.99
+    }
+  }
+}

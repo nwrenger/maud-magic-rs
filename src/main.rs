@@ -1,6 +1,6 @@
 pub mod db;
 
-use std::{net::SocketAddr, path::PathBuf};
+use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
 use axum::{
     body::Body,
@@ -12,6 +12,7 @@ use axum::{
 };
 use clap::{arg, command, Parser};
 use db::{Book, Database};
+use light_magic::persistence::AtomicDatabase;
 use maud::{html, Markup, DOCTYPE};
 use serde::Deserialize;
 use tower::util::ServiceExt;
@@ -24,6 +25,9 @@ use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, util::Subs
 struct Args {
     /// Ip and port for the webserver
     host: SocketAddr,
+    /// Path to the <ArcAtomicDatabase<database>>
+    #[arg(short, long, default_value = "lib.json")]
+    db: PathBuf,
     /// Directory for the static assets
     #[arg(short, long, default_value = "./assets")]
     assets: PathBuf,
@@ -33,9 +37,9 @@ struct Args {
 async fn main() {
     logging();
 
-    let Args { host, assets } = Args::parse();
+    let Args { host, db, assets } = Args::parse();
 
-    let db = db::init();
+    let db = db::init(&db);
 
     let app = Router::new()
         .route("/", get(root))
@@ -158,8 +162,11 @@ struct SearchForm {
 }
 
 /// Get the books and show them in a list
-async fn fetch_books(State(db): State<Database>, Form(form): Form<SearchForm>) -> Markup {
-    let books = db.search_book(&form.search);
+async fn fetch_books(
+    State(db): State<Arc<AtomicDatabase<Database>>>,
+    Form(form): Form<SearchForm>,
+) -> Markup {
+    let books = db.read().search_book(&form.search);
     html! {
         table class="table table-pin-rows table-pin-cols" {
             thead {
@@ -186,9 +193,12 @@ async fn fetch_books(State(db): State<Database>, Form(form): Form<SearchForm>) -
 }
 
 /// Show a Single Book
-async fn show_book(State(db): State<Database>, Path(path): Path<String>) -> Markup {
+async fn show_book(
+    State(db): State<Arc<AtomicDatabase<Database>>>,
+    Path(path): Path<String>,
+) -> Markup {
     let id = path.parse::<usize>().unwrap_or_default();
-    let book = db.get_book(&id).unwrap_or_default();
+    let book = db.read().get_book(&id).unwrap_or_default();
     book_with_edit_buttons(&book)
 }
 
@@ -198,8 +208,11 @@ async fn get_add_book() -> Markup {
 }
 
 /// Action when a book is added, opens it directly
-async fn add_book(State(db): State<Database>, Form(book): Form<Book>) -> impl IntoResponse {
-    if let Some(new_book) = db.add_book(book) {
+async fn add_book(
+    State(db): State<Arc<AtomicDatabase<Database>>>,
+    Form(book): Form<Book>,
+) -> impl IntoResponse {
+    if let Some(new_book) = db.write().add_book(book) {
         let mut headers = HeaderMap::default();
         headers.insert("HX-Trigger", HeaderValue::from_static("update"));
 
@@ -221,19 +234,19 @@ async fn add_book(State(db): State<Database>, Form(book): Form<Book>) -> impl In
 
 /// Action when a book is edited, opens it directly
 async fn edit_book(
-    State(db): State<Database>,
+    State(db): State<Arc<AtomicDatabase<Database>>>,
     Path(path): Path<String>,
     Form(book): Form<Book>,
 ) -> impl IntoResponse {
     let id = path.parse::<usize>().unwrap_or_default();
 
-    if let Some(new_book) = db.edit_book(&id, book) {
+    if let Some(new_book) = db.write().edit_book(&id, book) {
         let mut headers = HeaderMap::default();
         headers.insert("HX-Trigger", HeaderValue::from_static("update"));
 
         (StatusCode::OK, headers, book_with_edit_buttons(&new_book))
     } else {
-        if let Some(old_book) = db.get_book(&id) {
+        if let Some(old_book) = db.read().get_book(&id) {
             (
                 StatusCode::OK,
                 HeaderMap::default(),
@@ -257,12 +270,12 @@ async fn edit_book(
 
 /// Action when a book is deleted, closes it directly
 async fn delete_book(
-    State(db): State<Database>,
+    State(db): State<Arc<AtomicDatabase<Database>>>,
     Path(path): Path<String>,
     Form(book): Form<Book>,
 ) -> impl IntoResponse {
     let id = path.parse::<usize>().unwrap_or_default();
-    if db.delete_book(&id).is_some() {
+    if db.write().delete_book(&id).is_some() {
         let mut headers = HeaderMap::default();
         headers.insert("HX-Trigger", HeaderValue::from_static("update"));
 

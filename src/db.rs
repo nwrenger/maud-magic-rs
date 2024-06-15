@@ -1,12 +1,12 @@
-use light_magic::db;
-use serde::Deserialize;
+use light_magic::{db, persistence::AtomicDatabase};
+use std::sync::Arc;
 
 db! {
-    book: [Deserialize] => { id: usize, title: String, author: String, price: f64 }
+    book => { id: usize, title: String, author: String, price: f64 }
 }
 
-pub fn init() -> Database {
-    let db = Database::new();
+pub fn init(path: &Path) -> Arc<AtomicDatabase<Database>> {
+    let db = Database::new(path);
 
     let books = [
         Book {
@@ -60,8 +60,8 @@ pub fn init() -> Database {
     ];
 
     for book in books {
-        db.add_book(book);
+        db.write().add_book(book);
     }
 
-    db
+    db.into()
 }
