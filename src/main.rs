@@ -12,7 +12,7 @@ use axum::{
 };
 use clap::{arg, command, Parser};
 use db::{Book, Database};
-use light_magic::persistence::AtomicDatabase;
+use light_magic::atomic::AtomicDatabase;
 use maud::{html, Markup, DOCTYPE};
 use serde::Deserialize;
 use tower::util::ServiceExt;
@@ -166,7 +166,7 @@ async fn fetch_books(
     State(db): State<Arc<AtomicDatabase<Database>>>,
     Form(form): Form<SearchForm>,
 ) -> Markup {
-    let books = db.read().search_book(&form.search);
+    let books = db.read().book.search(&form.search);
     html! {
         table class="table table-pin-rows table-pin-cols" {
             thead {
@@ -198,7 +198,7 @@ async fn show_book(
     Path(path): Path<String>,
 ) -> Markup {
     let id = path.parse::<usize>().unwrap_or_default();
-    let book = db.read().get_book(&id).unwrap_or_default();
+    let book = db.read().book.get(&id).unwrap_or_default();
     book_with_edit_buttons(&book)
 }
 
@@ -212,7 +212,7 @@ async fn add_book(
     State(db): State<Arc<AtomicDatabase<Database>>>,
     Form(book): Form<Book>,
 ) -> impl IntoResponse {
-    if let Some(new_book) = db.write().add_book(book) {
+    if let Some(new_book) = db.write().book.add(book) {
         let mut headers = HeaderMap::default();
         headers.insert("HX-Trigger", HeaderValue::from_static("update"));
 
@@ -240,13 +240,13 @@ async fn edit_book(
 ) -> impl IntoResponse {
     let id = path.parse::<usize>().unwrap_or_default();
 
-    if let Some(new_book) = db.write().edit_book(&id, book) {
+    if let Some(new_book) = db.write().book.edit(&id, book) {
         let mut headers = HeaderMap::default();
         headers.insert("HX-Trigger", HeaderValue::from_static("update"));
 
         (StatusCode::OK, headers, book_with_edit_buttons(&new_book))
     } else {
-        if let Some(old_book) = db.read().get_book(&id) {
+        if let Some(old_book) = db.read().book.get(&id) {
             (
                 StatusCode::OK,
                 HeaderMap::default(),
@@ -275,7 +275,7 @@ async fn delete_book(
     Form(book): Form<Book>,
 ) -> impl IntoResponse {
     let id = path.parse::<usize>().unwrap_or_default();
-    if db.write().delete_book(&id).is_some() {
+    if db.write().book.delete(&id).is_some() {
         let mut headers = HeaderMap::default();
         headers.insert("HX-Trigger", HeaderValue::from_static("update"));
 
