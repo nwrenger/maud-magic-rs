@@ -2,7 +2,7 @@ use light_magic::db;
 use std::sync::Arc;
 
 db! {
-    book => { id: usize, title: String, author: String, price: f64 }
+    Table<Book> => { id: usize, title: String, author: String, price: f64 }
 }
 
 pub fn init(path: &Path) -> Arc<AtomicDatabase<Database>> {
