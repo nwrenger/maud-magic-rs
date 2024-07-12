@@ -166,13 +166,14 @@ async fn fetch_books(
     State(db): State<Arc<AtomicDatabase<Database>>>,
     Form(form): Form<SearchForm>,
 ) -> Markup {
-    let books = db.read().book.search(&form.search);
+    let db = db.read();
+    let books = db.book.search(&form.search);
     html! {
         table class="table table-pin-rows table-pin-cols" {
             thead {
                 tr {
                     th { "ID" }
-                    th {" Title" }
+                    th { "Title" }
                 }
             }
             tbody {
@@ -198,8 +199,10 @@ async fn show_book(
     Path(path): Path<String>,
 ) -> Markup {
     let id = path.parse::<usize>().unwrap_or_default();
-    let book = db.read().book.get(&id).unwrap_or_default();
-    book_with_edit_buttons(&book)
+    let binding = Book::default();
+    let db = db.read();
+    let book = db.book.get(&id).unwrap_or(&binding);
+    book_with_edit_buttons(book)
 }
 
 /// Show an Empty Book with an Add Button

@@ -1,4 +1,5 @@
-use light_magic::db;
+use light_magic::{atomic::AtomicDatabase, db};
+use std::path::Path;
 use std::sync::Arc;
 
 db! {
