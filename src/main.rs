@@ -167,7 +167,13 @@ async fn fetch_books(
     Form(form): Form<SearchForm>,
 ) -> Markup {
     let db = db.read();
-    let books = db.book.search(&form.search);
+    let books = db.books.search(|book| {
+        let search = form.search.to_lowercase();
+        book.id.to_string().contains(&search)
+            || book.title.to_lowercase().contains(&search)
+            || book.author.to_lowercase().contains(&search)
+            || book.price.to_string().contains(&search)
+    });
     html! {
         table class="table table-pin-rows table-pin-cols" {
             thead {
@@ -201,7 +207,7 @@ async fn show_book(
     let id = path.parse::<usize>().unwrap_or_default();
     let binding = Book::default();
     let db = db.read();
-    let book = db.book.get(&id).unwrap_or(&binding);
+    let book = db.books.get(&id).unwrap_or(&binding);
     book_with_edit_buttons(book)
 }
 
@@ -215,7 +221,7 @@ async fn add_book(
     State(db): State<Arc<AtomicDatabase<Database>>>,
     Form(book): Form<Book>,
 ) -> impl IntoResponse {
-    if let Some(new_book) = db.write().book.add(book) {
+    if let Some(new_book) = db.write().books.add(book) {
         let mut headers = HeaderMap::default();
         headers.insert("HX-Trigger", HeaderValue::from_static("update"));
 
@@ -243,31 +249,29 @@ async fn edit_book(
 ) -> impl IntoResponse {
     let id = path.parse::<usize>().unwrap_or_default();
 
-    if let Some(new_book) = db.write().book.edit(&id, book) {
+    if let Some(new_book) = db.write().books.edit(&id, book) {
         let mut headers = HeaderMap::default();
         headers.insert("HX-Trigger", HeaderValue::from_static("update"));
 
         (StatusCode::OK, headers, book_with_edit_buttons(&new_book))
+    } else if let Some(old_book) = db.read().books.get(&id) {
+        (
+            StatusCode::OK,
+            HeaderMap::default(),
+            html! {
+                (book_with_edit_buttons(&old_book))
+                div role="alert" class="alert alert-error" {
+                    svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24" { path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z";}
+                    span { "Error! Editing Book failed: 'Bad Request'." }
+                }
+            },
+        )
     } else {
-        if let Some(old_book) = db.read().book.get(&id) {
-            (
-                StatusCode::OK,
-                HeaderMap::default(),
-                html! {
-                    (book_with_edit_buttons(&old_book))
-                    div role="alert" class="alert alert-error" {
-                        svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24" { path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z";}
-                        span { "Error! Editing Book failed: 'Bad Request'." }
-                    }
-                },
-            )
-        } else {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                HeaderMap::default(),
-                html!(),
-            )
-        }
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            HeaderMap::default(),
+            html!(),
+        )
     }
 }
 
@@ -278,7 +282,7 @@ async fn delete_book(
     Form(book): Form<Book>,
 ) -> impl IntoResponse {
     let id = path.parse::<usize>().unwrap_or_default();
-    if db.write().book.delete(&id).is_some() {
+    if db.write().books.delete(&id).is_some() {
         let mut headers = HeaderMap::default();
         headers.insert("HX-Trigger", HeaderValue::from_static("update"));
 
