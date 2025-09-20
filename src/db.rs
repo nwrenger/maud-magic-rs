@@ -28,6 +28,5 @@ impl PrimaryKey for Book {
 }
 
 pub fn init(path: &Path) -> Arc<AtomicDatabase<Database>> {
-    let db = Database::open(path);
-    db.into()
+    Database::open(path).into()
 }
